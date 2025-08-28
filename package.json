@@ -1,0 +1,23 @@
+{
+  "name": "updateissue",
+  "version": "1.0.0",
+  "description": "Lightweight SDK to monitor and report service failures (payments, AI credits, API outages, etc.)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "sdk",
+    "monitoring",
+    "issue-tracking",
+    "autopilot",
+    "errors"
+  ],
+  "author": "Raj Tripathi",
+  "license": "ISC",
+  "dependencies": {
+    "cross-fetch": "^4.1.0"
+  }
+}
