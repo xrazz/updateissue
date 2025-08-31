@@ -15,7 +15,7 @@ class ErrorMonitor {
         this.originalHandlers = new Map();
         this.isActive = false;
         this.apiKey = apiKey;
-        this.options = Object.assign({ endpoint: "https://your-backend.com/webhook", enableConsoleErrors: true, enablePromiseRejections: true, enableFunctionWrapping: true, enableFetchMonitoring: true, monitorHttpErrors: true, httpErrorCodes: [400, 401, 403, 404, 429, 500, 502, 503, 504] }, options);
+        this.options = Object.assign({ endpoint: "https://your-backend.com/webhook", enableConsoleErrors: true, enablePromiseRejections: true, enableFunctionWrapping: true, enableFetchMonitoring: true, monitorHttpErrors: true, httpErrorCodes: [400, 401, 403, 404, 429, 500, 502, 503, 504], silent: false, debugMode: false }, options);
     }
     /**
      * Start monitoring for errors globally
@@ -24,11 +24,28 @@ class ErrorMonitor {
         if (this.isActive)
             return;
         this.isActive = true;
+        if (!this.options.silent) {
+            console.log('🛡️  UpdateIssue SDK - Error monitoring started');
+            console.log('📡 Endpoint:', this.options.endpoint);
+            console.log('🔔 Notifier:', this.options.notifier || 'default');
+            console.log('📋 Monitoring:', {
+                consoleErrors: this.options.enableConsoleErrors,
+                promiseRejections: this.options.enablePromiseRejections,
+                fetchRequests: this.options.enableFetchMonitoring,
+                httpErrorCodes: this.options.httpErrorCodes
+            });
+        }
         // Monitor uncaught exceptions (Node.js)
         if (typeof process !== 'undefined' && process.on) {
             const uncaughtHandler = (error) => {
+                if (!this.options.silent) {
+                    console.log('🚨 UpdateIssue - Caught uncaught exception:', error.message);
+                }
                 this.reportError('uncaught_exception', error, 'uncaught');
             };
+            if (!this.options.silent) {
+                console.log('🛡️  UpdateIssue SDK - Error monitoring stopped');
+            }
             process.on('uncaughtException', uncaughtHandler);
             this.originalHandlers.set('uncaughtException', uncaughtHandler);
         }
@@ -38,6 +55,9 @@ class ErrorMonitor {
                 // Browser environment
                 const rejectionHandler = (event) => {
                     const error = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
+                    if (!this.options.silent) {
+                        console.log('🚨 UpdateIssue - Caught unhandled promise rejection:', error.message);
+                    }
                     this.reportError('unhandled_promise_rejection', error, 'promise');
                 };
                 window.addEventListener('unhandledrejection', rejectionHandler);
@@ -47,6 +67,9 @@ class ErrorMonitor {
                 // Node.js environment
                 const rejectionHandler = (reason, promise) => {
                     const error = reason instanceof Error ? reason : new Error(String(reason));
+                    if (!this.options.silent) {
+                        console.log('🚨 UpdateIssue - Caught unhandled promise rejection:', error.message);
+                    }
                     this.reportError('unhandled_promise_rejection', error, 'promise');
                 };
                 process.on('unhandledRejection', rejectionHandler);
@@ -63,9 +86,15 @@ class ErrorMonitor {
                 if (args.length > 0) {
                     const firstArg = args[0];
                     if (firstArg instanceof Error) {
+                        if (!this.options.silent) {
+                            console.log('🚨 UpdateIssue - Caught console.error with Error object:', firstArg.message);
+                        }
                         this.reportError('console_error', firstArg, 'manual');
                     }
                     else if (typeof firstArg === 'string' && args.length > 1 && args[1] instanceof Error) {
+                        if (!this.options.silent) {
+                            console.log('🚨 UpdateIssue - Caught console.error:', firstArg);
+                        }
                         this.reportError(firstArg, args[1], 'manual');
                     }
                 }
@@ -76,6 +105,9 @@ class ErrorMonitor {
         if (typeof window !== 'undefined') {
             const errorHandler = (event) => {
                 const error = event.error || new Error(event.message);
+                if (!this.options.silent) {
+                    console.log('🚨 UpdateIssue - Caught global window error:', error.message);
+                }
                 this.reportError('global_error', error, 'uncaught');
             };
             window.addEventListener('error', errorHandler);
@@ -94,6 +126,9 @@ class ErrorMonitor {
                         ((_a = monitor.options.httpErrorCodes) === null || _a === void 0 ? void 0 : _a.includes(response.status))) {
                         const url = typeof input === 'string' ? input : input.toString();
                         const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        if (!monitor.options.silent) {
+                            console.log(`🚨 UpdateIssue - Caught HTTP ${response.status} error:`, url);
+                        }
                         // Try to get response body for more context
                         let responseBody = '';
                         try {
@@ -110,6 +145,9 @@ class ErrorMonitor {
                 catch (fetchError) {
                     // Network errors, timeouts, etc.
                     const url = typeof input === 'string' ? input : input.toString();
+                    if (!monitor.options.silent) {
+                        console.log('🚨 UpdateIssue - Caught fetch network error:', url, fetchError.message);
+                    }
                     monitor.reportError('fetch_network_error', fetchError, 'manual');
                     throw fetchError;
                 }
@@ -128,12 +166,18 @@ class ErrorMonitor {
                         ((_a = monitor.options.httpErrorCodes) === null || _a === void 0 ? void 0 : _a.includes(response.status))) {
                         const url = typeof input === 'string' ? input : input.toString();
                         const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        if (!monitor.options.silent) {
+                            console.log(`🚨 UpdateIssue - Caught HTTP ${response.status} error (Node.js):`, url);
+                        }
                         monitor.reportError(`fetch_${response.status}`, error, 'manual');
                     }
                     return response;
                 }
                 catch (fetchError) {
                     const url = typeof input === 'string' ? input : input.toString();
+                    if (!monitor.options.silent) {
+                        console.log('🚨 UpdateIssue - Caught fetch network error (Node.js):', url, fetchError.message);
+                    }
                     monitor.reportError('fetch_network_error', fetchError, 'manual');
                     throw fetchError;
                 }
@@ -226,7 +270,19 @@ class ErrorMonitor {
                 timestamp: new Date().toISOString(),
                 errorType
             };
-            console.log("🚨 Error Monitor - Reporting issue:", payload);
+            if (!this.options.silent) {
+                console.log('📤 UpdateIssue - Reporting error:', {
+                    event: payload.event,
+                    error: payload.error,
+                    file: payload.file,
+                    function: payload.function,
+                    line: payload.line,
+                    errorType: payload.errorType
+                });
+                if (this.options.debugMode) {
+                    console.log('🔍 UpdateIssue - Full payload:', payload);
+                }
+            }
             const response = await (0, cross_fetch_1.default)(this.options.endpoint, {
                 method: "POST",
                 headers: {
@@ -238,9 +294,14 @@ class ErrorMonitor {
             if (!response.ok) {
                 throw new Error(`Error reporting failed with status ${response.status}`);
             }
+            if (!this.options.silent) {
+                console.log('✅ UpdateIssue - Error reported successfully');
+            }
         }
         catch (reportErr) {
-            console.error("🚨 Error Monitor - Failed to report error:", reportErr);
+            if (!this.options.silent) {
+                console.error("❌ UpdateIssue - Failed to report error:", reportErr);
+            }
             // Don't throw to avoid infinite loops
         }
     }

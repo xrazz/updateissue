@@ -10,6 +10,8 @@ export interface MonitorOptions extends IssueUpdateOptions {
     enableFetchMonitoring?: boolean;
     monitorHttpErrors?: boolean;
     httpErrorCodes?: number[];
+    silent?: boolean;
+    debugMode?: boolean;
 }
 declare class ErrorMonitor {
     private apiKey;
